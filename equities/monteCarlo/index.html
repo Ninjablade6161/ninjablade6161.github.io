@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Equity Engine</title>
+<style>
+  :root{
+    --ink:#DDE6ED;
+    --bg:#6e7b86;
+    --panel:#3c4a56;
+    --panel-soft:#4b5b69;
+    --card:#f6f8fb;
+    --text:#0b1826;
+    --muted:#7a8a98;
+    --accent:#1f5e7a;
+    --border:#DDE6ED;
+    --chip:#0f1117;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    color:var(--text);
+  }
+
+  .page{max-width:1240px;margin:24px auto 80px;padding:0 16px}
+
+  .toolbar{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+  h1{
+    margin:0 0 12px;
+    font-weight:900;
+    color:white;
+    letter-spacing:.3px;
+  }
+
+  /* Buttons */
+  .btn{
+    height:44px;min-width:160px;
+    display:grid;place-items:center;
+    background:#27374D;
+    border:2px solid var(--border);
+    color:var(--ink);
+    border-radius:10px;
+    font-weight:900;
+    cursor:pointer;user-select:none;
+    box-shadow:0 4px 10px rgba(0,0,0,.15);
+    transition:transform .05s ease,filter .15s ease;
+  }
+  .btn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn.ghost{background:transparent;color:white;border-color:rgba(255,255,255,.55)}
+  .btn.small{min-width:auto;padding:0 14px;height:38px}
+
+  /* Panels */
+  .panel{
+    background:rgba(255,255,255,.08);
+    border:2px solid var(--border);
+    border-radius:12px;
+    padding:16px;
+    box-shadow:0 8px 28px rgba(0,0,0,.18);
+  }
+  .panel h2{margin:0 0 12px;font-size:18px;color:white}
+
+  /* Player grid */
+  .players-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px 16px;
+  }
+  .player-card{
+    display:grid;
+    grid-template-columns: 150px 1fr 1fr;
+    gap:12px;
+    align-items:center;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.35);
+    border-radius:10px;
+    padding:12px;
+  }
+  .p-title{color:white;font-weight:800}
+  .p-sub{color:rgba(255,255,255,.85);font-weight:700;font-size:12px}
+
+  /* Board & controls */
+  .board-grid{
+    display:grid;gap:14px;
+    grid-template-columns: 1.1fr 1fr 1fr;
+  }
+  .card-box{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.35);
+    border-radius:10px;
+    padding:12px;
+  }
+  .card-box h3{margin:0 0 10px;color:white;font-size:15px}
+  .card-pills{display:flex;gap:10px;flex-wrap:wrap}
+
+  .pill-input{
+    width:68px;height:40px;border-radius:10px;
+    border:1px solid #cbd5df;background:var(--card);color:#0b1826;
+    text-align:center;font-weight:800;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.05);
+  }
+  .pill-input::placeholder{color:#9aa7b3}
+
+  .trials-row{
+    display:flex;align-items:center;gap:12px;
+    margin-top:6px;color:white;font-weight:800;
+  }
+  .trials-row .pill-input{width:180px}
+
+  .progress{
+    width:100%;height:10px;border-radius:999px;
+    background:rgba(0,0,0,.2);
+    overflow:hidden;margin-top:12px;
+    border:1px solid rgba(255,255,255,.35)
+  }
+  .progress > div{
+    height:100%;width:0%;background:#2cb1d1;
+    transition:width .2s ease
+  }
+  .pct{color:white;font-weight:800;margin-left:8px}
+
+  /* Iframe modal (re-used for editor & preview) */
+  #backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);
+    display:none;align-items:center;justify-content:center;z-index:3000;
+  }
+  .frame-shell{
+    background:#13202f;border:2px solid var(--border);
+    border-radius:12px;width:95%;max-width:80em;height:90%;
+    display:flex;flex-direction:column
+  }
+  .frame-top{
+    display:flex;justify-content:flex-end;padding:8px
+  }
+  .frame-close{
+    background:var(--accent);color:#fff;border:none;cursor:pointer;
+    padding:6px 12px;border-radius:6px;font-weight:800
+  }
+  iframe.frame{flex:1;border:none;border-radius:0 0 12px 12px;background:#0f1117}
+
+  /* Results modal */
+  #results-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+    align-items:center;justify-content:center;z-index:3000}
+  .results{
+    background:#13202f;border:2px solid var(--border);border-radius:12px;
+    width:min(720px,92vw);max-height:88vh;overflow:auto;padding:16px;color:#e7edf3
+  }
+  .results h3{margin:0 0 10px}
+  .results table{width:100%;border-collapse:collapse}
+  .results th,.results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.15);text-align:left}
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Equity Engine</h1>
+
+    <div class="toolbar">
+      <a class="btn ghost small" href="../index.html">← Back</a>
+      <button id="btn-open-editor" class="btn small">Open Range Editor</button>
+      <button id="btn-start" class="btn">Start Simulation</button>
+      <button id="btn-results" class="btn">Show Results</button>
+    </div>
+
+    <section class="panel">
+      <h2>Players</h2>
+      <div id="players" class="players-grid">
+        <!-- rows injected -->
+      </div>
+    </section>
+
+    <br/>
+
+    <section class="panel">
+      <h2>Board & Simulation</h2>
+      <div class="board-grid">
+        <div class="card-box">
+          <h3>Flop</h3>
+          <div class="card-pills">
+            <input id="fl1" class="pill-input" placeholder="Ah" />
+            <input id="fl2" class="pill-input" placeholder="Kd" />
+            <input id="fl3" class="pill-input" placeholder="7c" />
+          </div>
+        </div>
+        <div class="card-box">
+          <h3>Turn</h3>
+          <div class="card-pills">
+            <input id="trn" class="pill-input" placeholder="Ts" />
+          </div>
+        </div>
+        <div class="card-box">
+          <h3>River</h3>
+          <div class="card-pills">
+            <input id="riv" class="pill-input" placeholder="2s" />
+          </div>
+        </div>
+      </div>
+
+      <div class="trials-row">
+        <span>Trials:</span>
+        <input id="trials" class="pill-input" value="10000000" />
+        <span style="color:#b8c8d6;font-weight:700">Blank streets = not dealt</span>
+      </div>
+
+      <div class="progress" aria-label="progress">
+        <div id="bar"></div>
+      </div>
+      <div class="pct" id="pct">0%</div>
+    </section>
+  </div>
+
+  <!-- Iframe modal (used for Editor & Preview Effective) -->
+  <div id="backdrop">
+    <div class="frame-shell">
+      <div class="frame-top">
+        <button id="close-frame" class="frame-close">Close</button>
+      </div>
+      <iframe id="frame" class="frame" src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <!-- Results modal -->
+  <div id="results-backdrop">
+    <div class="results">
+      <h3>Simulation Results</h3>
+      <div id="results-body">No results yet.</div>
+      <div style="margin-top:10px;text-align:right">
+        <button id="close-results" class="frame-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------------- URLs for external tools ---------------- */
+const RANGE_EDITOR_URL = "../../rangeMaker";            // editor (full UI)
+const RANGE_VIEW_URL   = "../../RangeView/index.html";  // viewer (expects ?b64=)
+
+/* ---------------- Mini DOM helpers ---------------- */
+const $ = s => document.querySelector(s);
+const playersEl = $("#players");
+const bar = $("#bar");
+const pct = $("#pct");
+const backdrop = $("#backdrop");
+const frame = $("#frame");
+$("#close-frame").onclick = () => (backdrop.style.display = "none");
+backdrop.addEventListener("click", e => { if (e.target === backdrop) backdrop.style.display = "none"; });
+
+/* ---------------- Model: players & state ---------------- */
+const players = Array.from({length:6}, (_,i)=>({
+  name:`Player ${i+1}`,
+  rawCrf:"",        // original CRF pasted (169 modules, ?-sep)
+  policy:4,         // chosen policy (1-6)
+  pureCrf:""        // CRF after policy mapping (AXX/CXX/C00)
+}));
+
+// Central state you can consume for your own Monte Carlo
+const pokerConfig = {
+  players,                       // as above
+  board: { flop: [], turn:null, river:null }, // normalized cards
+  trials: 10000000               // integer
+};
+
+// expose globally
+window.pokerConfig = pokerConfig;
+window.getPokerConfig = () => JSON.parse(JSON.stringify(pokerConfig));
+
+// event helper for external listeners
+function emitStateChange(){
+  window.dispatchEvent(new CustomEvent("pokerstatechange", { detail: window.getPokerConfig() }));
+}
+
+/* ---------------- CRF policy helpers (unchanged) ---------------- */
+const clampPct = x => Math.max(0, Math.min(100, x|0));
+function readMod(m){
+  const t = (m||"").trim().toUpperCase();
+  const letter = t[0] || "C";
+  const raw    = t.slice(1);
+  const pct    = raw === "XX" ? 100 : clampPct(parseInt(raw,10)||0);
+  const raisePct = (letter==="A"||letter==="B") ? pct : 0;
+  const callPct  = (letter==="A") ? (100-pct) : (letter==="C" ? pct : 0);
+  return {letter,pct,raisePct,callPct};
+}
+const AXX = "AXX", CXX = "CXX", C00 = "C00";
+
+function policy1(crf){
+  return crf.split("?").map(m=>{
+    const L=readMod(m).letter;
+    if(L==="A"||L==="B") return AXX;
+    if(L==="C") return CXX;
+    return C00;
+  }).join("?");
+}
+function policy2(crf){
+  return crf.split("?").map(m=>{
+    const {letter,pct}=readMod(m);
+    if(letter==="A"&&pct===100) return AXX;
+    if(letter==="C"&&pct===100) return CXX;
+    return C00;
+  }).join("?");
+}
+function policy3(crf){
+  return crf.split("?").map(m=>{
+    const L=readMod(m).letter;
+    if(L==="A"||L==="B") return AXX;
+    return C00;
+  }).join("?");
+}
+function policy4(crf){
+  return crf.split("?").map(m=>{
+    const {letter,raisePct}=readMod(m);
+    if((letter==="A"||letter==="B") && raisePct>=50) return AXX;
+    return C00;
+  }).join("?");
+}
+const policy5 = policy4;
+function policy6(crf){
+  return crf.split("?").map(m=>{
+    const {letter,raisePct,callPct}=readMod(m);
+    if((letter==="A"||letter==="B") && raisePct>=50) return AXX;
+    if((letter==="A"||letter==="C") && callPct>=50) return CXX;
+    return C00;
+  }).join("?");
+}
+const POLICIES={1:policy1,2:policy2,3:policy3,4:policy4,5:policy5,6:policy6};
+
+/* ---------------- Build player rows ---------------- */
+players.forEach((p,i)=>{
+  const row = document.createElement("div");
+  row.className = "player-card";
+  row.innerHTML = `
+    <div>
+      <div class="p-title">${p.name}</div>
+      <div class="p-sub" id="pstat-${i}">No range</div>
+    </div>
+    <button class="btn small" id="set-${i}">Set Range & Policy</button>
+    <button class="btn ghost small" id="prev-${i}">Preview Effective</button>
+  `;
+  playersEl.appendChild(row);
+});
+
+/* ---------------- Range & policy capture ---------------- */
+players.forEach((_,i)=>{
+  $("#set-"+i).addEventListener("click", ()=>{
+    const raw = prompt("Paste CRF (169 modules ?-separated):", players[i].rawCrf || "");
+    if (raw == null) return;
+    const parts = raw.trim().split("?");
+    if (parts.length !== 169){ alert(`Invalid CRF: expected 169, got ${parts.length}`); return; }
+
+    let pol = prompt(
+      "Policy (1–6). Default 4:\n1) Play all mixed\n2) Fold all mixed\n3) Play mixed raises, fold calls\n4) Play mixed raises if raise% ≥ 50 (default)\n5) Same as 4\n6) Play raise ≥50; play call ≥50",
+      String(players[i].policy || 4)
+    );
+    if (pol == null || pol.trim()==="") pol="4";
+    pol = Math.max(1, Math.min(6, parseInt(pol,10)||4));
+
+    players[i].rawCrf = raw.trim();
+    players[i].policy = pol;
+    players[i].pureCrf = (POLICIES[pol]||POLICIES[4])(players[i].rawCrf);
+
+    $("#pstat-"+i).textContent = `CRF set • Policy ${pol}`;
+    emitStateChange();
+  });
+});
+
+/* ---------------- Preview Effective (iframe popup) ---------------- */
+function toB64Utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
+players.forEach((_,i)=>{
+  $("#prev-"+i).addEventListener("click", ()=>{
+    const pure = players[i].pureCrf;
+    if (!pure){ alert("No range saved for this player."); return; }
+    const url = `${RANGE_VIEW_URL}?b64=${encodeURIComponent(toB64Utf8(pure))}`;
+    frame.src = url;
+    backdrop.style.display = "flex";
+  });
+});
+
+/* ---------------- Open full editor ---------------- */
+$("#btn-open-editor").addEventListener("click", ()=>{
+  frame.src = RANGE_EDITOR_URL;
+  backdrop.style.display = "flex";
+});
+
+/* ---------------- Board + trials: capture & normalize ---------------- */
+// Card normalization: "ah" -> "Ah", "10d" -> "Td"
+const RANK_MAP = { '10':'T' };
+const VALID_RANKS = new Set(['A','K','Q','J','T','9','8','7','6','5','4','3','2']);
+const VALID_SUITS = new Set(['s','h','d','c']);
+
+function normalizeCard(input){
+  if(!input) return null;
+  let t = String(input).trim();
+  if(!t) return null;
+
+  // accept separators like space or nothing (keep as a 2-char token ideally)
+  t = t.replace(/\s+/g,'').toLowerCase();
+
+  // map 10 -> T
+  t = t.replace(/^10([shdc])$/,'t$1');
+
+  // if someone types like 'ts' it's already ok; allow 't' rank
+  if (t.length!==2) return null;
+
+  const r = t[0].toUpperCase();
+  const s = t[1].toLowerCase();
+  if(!VALID_RANKS.has(r) || !VALID_SUITS.has(s)) return null;
+  return r + s;
+}
+
+function readBoardIntoState(){
+  const f1 = normalizeCard($("#fl1").value);
+  const f2 = normalizeCard($("#fl2").value);
+  const f3 = normalizeCard($("#fl3").value);
+  const t  = normalizeCard($("#trn").value);
+  const r  = normalizeCard($("#riv").value);
+
+  const flop = [f1,f2,f3].filter(Boolean);
+  pokerConfig.board.flop  = flop.length ? flop : [];
+  pokerConfig.board.turn  = t || null;
+  pokerConfig.board.river = r || null;
+
+  const trialsRaw = $("#trials").value.replace(/[, _]/g,"");
+  const trials = Math.max(1, parseInt(trialsRaw,10) || 1);
+  pokerConfig.trials = trials;
+
+  emitStateChange();
+}
+
+["#fl1","#fl2","#fl3","#trn","#riv","#trials"].forEach(sel=>{
+  $(sel).addEventListener("input", readBoardIntoState);
+});
+// initialize
+readBoardIntoState();
+
+/* ---------------- Dummy progress bar (kept for UI parity) ---------------- */
+const trialsEl = $("#trials");
+let simRunning = false, simTimer = null;
+function resetProgress(){ bar.style.width="0%"; pct.textContent="0%"; }
+function setProgress(f){ const p = Math.max(0,Math.min(1,f)); bar.style.width=(p*100).toFixed(1)+"%"; pct.textContent=(p*100).toFixed(0)+"%"; }
+
+$("#btn-start").addEventListener("click", ()=>{
+  if (simRunning){ return; }
+  // refresh state from inputs right before starting
+  readBoardIntoState();
+
+  resetProgress();
+  const steps = 300; // purely UI eye-candy
+  let k = 0;
+  simRunning = true;
+  simTimer = setInterval(()=>{
+    k++;
+    setProgress(k/steps);
+    if (k>=steps){
+      clearInterval(simTimer);
+      simRunning=false;
+      // For convenience while you build your MC: log the snapshot
+      // (remove if you don't want console noise)
+      console.log("Config snapshot:", window.getPokerConfig());
+    }
+  }, 10);
+});
+
+/* ---------------- Results modal ---------------- */
+const resultsBackdrop=$("#results-backdrop");
+$("#btn-results").onclick = ()=>{
+  readBoardIntoState();
+  const b = pokerConfig.board;
+  const trials = pokerConfig.trials.toLocaleString();
+
+  $("#results-body").innerHTML = `
+    <table>
+      <thead><tr><th>Player</th><th>Range Status</th><th>Policy</th></tr></thead>
+      <tbody>
+        ${players.map((p,i)=>`<tr><td>${p.name}</td><td>${p.rawCrf? "Set": "Not set"}</td><td>${p.rawCrf? p.policy:"—"}</td></tr>`).join("")}
+      </tbody>
+    </table>
+    <div style="margin-top:12px">
+      <strong>Board:</strong>
+      <div>Flop: ${b.flop.length ? b.flop.join(", ") : "—"}</div>
+      <div>Turn: ${b.turn || "—"}</div>
+      <div>River: ${b.river || "—"}</div>
+      <div style="margin-top:6px"><strong>Trials:</strong> ${trials}</div>
+    </div>
+  `;
+  resultsBackdrop.style.display="flex";
+};
+$("#close-results").onclick = ()=> resultsBackdrop.style.display="none";
+resultsBackdrop.addEventListener("click", e=>{ if(e.target===resultsBackdrop) resultsBackdrop.style.display="none"; });
+
+/* ---------------- Back button passthrough ---------------- */
+document.addEventListener("click", (e)=>{
+  if (e.target && e.target.matches('[href="../index.html"]')) {
+    // allow normal nav
+  }
+});
+
+  function CRFtoArray(crf) {
+    const RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+    const labels = [];
+    for (let r = 0; r < 13; r++) {
+      for (let c = 0; c < 13; c++) {
+        if (r === c) labels.push(RANKS[r]+RANKS[c]);       // pair
+        else if (c > r) labels.push(RANKS[r]+RANKS[c]+'s'); // suited
+        else labels.push(RANKS[c]+RANKS[r]+'o');            // offsuit
+      }
+    }
+    const tokens = crf.trim().split("?");
+    if (tokens.length !== 169) throw new Error("Invalid CRF: expected 169 tokens");
+    const out = [];
+    for (let i = 0; i < 169; i++) {
+      const t = tokens[i].trim().toUpperCase();
+      if (t === "AXX" || t === "CXX") out.push(labels[i]);
+    }
+    return out;
+  }
+
+  document.getElementById("btn-start").addEventListener("click", () => {
+    try {
+      simulateEquity();  // 👈 your custom function
+    } catch (err) {
+      console.error("simulateEquity() is not defined yet:", err);
+    }
+  });
+
+  function simulateEquity(){
+    let numTrials   = pokerConfig.trials;
+    let deck = ["Ah", "Kh", "Qh", "Jh", "Th", "9h", "8h", "7h", "6h", "5h", "4h", "3h", "2h", "Ad", "Kd", "Qd", "Jd", "Td", "9d", "8d", "7d", "6d", "5d", "4d", "3d", "2d", "Ac", "Kc", "Qc", "Jc", "Tc", "9c", "8c", "7c", "6c", "5c", "4c", "3c", "2c", "As", "Ks", "Qs", "Js", "Ts", "9s", "8s", "7s", "6s", "5s", "4s", "3s", "2s"]
+    let player1CRF  = pokerConfig.players[0].pureCrf;
+    let player1Range = CRFtoArray(player1CRF);
+    let player2CRF  = pokerConfig.players[1].pureCrf;
+    let player2Range = CRFtoArray(player2CRF);
+    let player3CRF  = pokerConfig.players[2].pureCrf;
+    let player3Range = CRFtoArray(player3CRF);
+    let player4CRF  = pokerConfig.players[3].pureCrf;
+    let player4Range = CRFtoArray(player4CRF);
+    let player5CRF  = pokerConfig.players[4].pureCrf;
+    let player5Range = CRFtoArray(player5CRF);
+    let player6CRF  = pokerConfig.players[5].pureCrf;
+    let player6Range = CRFtoArray(player6CRF);
+
+    let flop  = pokerConfig.board.flop;   // array like ["Ah","Kd","7c"]
+    let turn  = pokerConfig.board.turn ? [pokerConfig.board.turn] : [];   // array or empty
+    let river = pokerConfig.board.river ? [pokerConfig.board.river] : []; // array or empty
+
+    alert(player1Range);
+  }
+  // === Equity Engine Variables ===
+  
+//Expand all ranges into card combos
+
+</script>
+</body>
+</html>
