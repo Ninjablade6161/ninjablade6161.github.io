@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Poker Range Saver</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --ink:#e5e7eb; --muted:#94a3b8; --border:#1f2937; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b1220 0%,#0f172a 100%);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .toolbar{justify-content:space-between;margin-bottom:18px}
+    h1{font-size:22px;margin:0 0 2px}
+    .sub{color:var(--muted);font-size:12px}
+    button,input{color:var(--ink);background:#0b1220;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+    button{cursor:pointer;transition:transform .06s ease} button:hover{transform:translateY(-1px)}
+    .btn{display:inline-flex;align-items:center;gap:8px}
+    .btn.green{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.35)}
+    .btn.blue{background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.35)}
+    .btn.red{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.35)}
+    .search{width:280px}
+
+    /* Card grid (compact, nice alignment) */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .title{font-weight:600}
+    .meta{color:var(--muted);font-size:12px}
+
+    /* iframe preview is centered, no scrollbars, height is auto via postMessage */
+    .preview{display:flex;justify-content:center;align-items:center}
+    iframe.range-frame{width:100%;border:0;border-radius:12px;background:transparent;display:block;min-height:240px}
+
+    .card-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+
+    /* Modal (expand) */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9999}
+    .modal.open{display:flex}
+    .modal-card{background:#0b1220;border:1px solid #1f2937;border-radius:14px;max-width:min(90vw,980px);width:100%;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .modal-title{font-weight:600}
+    .close{cursor:pointer;border:1px solid #1f2937;border-radius:8px;padding:6px 10px;background:#111827}
+    .modal-body{display:flex;justify-content:center}
+    iframe.modal-frame{width:100%;border:0;border-radius:12px;background:transparent;min-height:520px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row toolbar">
+      <div>
+        <h1>Poker Range Saver</h1>
+        <div class="sub">Compact previews inline. Hover tooltips work. “Expand” opens a large, crisp view.</div>
+      </div>
+      <div class="row">
+        <input id="search" class="search" placeholder="Search titles…" />
+        <button id="addBtn" class="btn green">➕ Save</button>
+        <button id="exportBtn" class="btn blue">⤴ Export</button>
+        <button id="importBtn" class="btn">⤵ Import</button>
+        <button id="viewerBtn" class="btn">🔗 Viewer URL</button>
+        <button id="wipeBtn" class="btn red">🗑 Wipe</button>
+        <button id="backBtn" class="btn">⬅ Back</button>
+      </div>
+    </div>
+
+    <div id="grid" class="grid"></div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title" id="modalTitle">Range</div>
+        <button class="close" id="modalClose">✖ Close</button>
+      </div>
+      <div class="modal-body">
+        <iframe id="modalFrame" class="modal-frame" loading="eager"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ---- Viewer URL (auto-detect + override) ---- */
+    const VIEWER_URL_KEY = 'pokerRanges.viewerUrl';
+    function autoDetectViewerUrl(){ try{ return new URL('RangeView/index.html', location.href).toString(); } catch { return './RangeView/index.html'; } }
+    function getViewerUrl(){ const saved = localStorage.getItem(VIEWER_URL_KEY); if(saved) return saved; const guess=autoDetectViewerUrl(); localStorage.setItem(VIEWER_URL_KEY, guess); return guess; }
+    function setViewerUrl(u){ localStorage.setItem(VIEWER_URL_KEY, u); }
+
+    /* ---- Storage ---- */
+    (function(global){
+      const STORAGE_KEY='pokerRanges.v1';
+      const now=()=>new Date().toISOString();
+      const uuid=()=> (crypto && crypto.randomUUID)? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2,10);
+      const read=()=>{ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]') }catch{ return [] } };
+      const write=(l)=>localStorage.setItem(STORAGE_KEY, JSON.stringify(l));
+      global.PokerRangeStore={
+        getAll(){return read().sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt))},
+        save({title,text}){const l=read(); l.push({id:uuid(), title, text, createdAt:now(), updatedAt:now()}); write(l);},
+        update(id,patch){const l=read(); const i=l.findIndex(x=>x.id===id); if(i<0)return; l[i]={...l[i],...patch,updatedAt:now()}; write(l);},
+        remove(id){write(read().filter(x=>x.id!==id))},
+        clear(){write([])},
+        export(){return JSON.stringify(read(),null,2)},
+        import(json){const arr=JSON.parse(json); if(!Array.isArray(arr)) throw new Error('Invalid JSON'); write(arr);}
+      };
+    })(window);
+
+    /* ---- UI ---- */
+    const gridEl = document.getElementById('grid');
+    const searchEl = document.getElementById('search');
+
+    function promptNew(){
+      const text = window.prompt('Paste your CRF:'); if(!text) return;
+      const title = window.prompt('Title:') || 'Untitled';
+      PokerRangeStore.save({ title, text }); render();
+    }
+    function promptEdit(rec){
+      const title = window.prompt('Edit title:', rec.title); if(title==null) return;
+      const text = window.prompt('Edit CRF:', rec.text); if(text==null) return;
+      PokerRangeStore.update(rec.id, { title, text }); render();
+    }
+
+    const escapeHtml = s => String(s).replace(/[&<>\"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]));
+
+    // Build URLs to viewer. `cell` adjusts visual size. `caption=0` removes the “Range” title in embeds.
+    function iframeSrcFor(crf, id, cellPx){
+      const b64 = btoa(unescape(encodeURIComponent(crf)));
+      try{ const u=new URL(getViewerUrl(), location.href); u.searchParams.set('b64', b64); u.searchParams.set('embed','1'); u.searchParams.set('embedId', id); u.searchParams.set('cell', String(cellPx)); u.searchParams.set('caption','0'); return u.toString(); }
+      catch{ const base=getViewerUrl(); const sep=base.includes('?')?'&':(base.includes('#')?'':'?'); return base + `${sep}b64=${encodeURIComponent(b64)}&embed=1&embedId=${id}&cell=${cellPx}&caption=0`; }
+    }
+
+    function render(){
+      const q=(searchEl.value||'').toLowerCase();
+      const items=PokerRangeStore.getAll().filter(r=>!q||r.title.toLowerCase().includes(q));
+      if(!items.length){ gridEl.innerHTML='<div class="sub">No ranges saved. Click <b>Save</b> to add one.</div>'; return; }
+      gridEl.innerHTML='';
+      for(const r of items){
+        const card=document.createElement('div'); card.className='card';
+
+        const smallUrl = iframeSrcFor(r.text, r.id, 26);   // compact preview (adjust smaller/bigger here)
+        const bigUrl   = iframeSrcFor(r.text, r.id, 42);   // modal zoom
+
+        card.innerHTML = `
+          <div class="card-head">
+            <div class="title">${escapeHtml(r.title)}</div>
+            <div class="meta">${new Date(r.updatedAt).toLocaleString()}</div>
+          </div>
+          <div class="preview"><iframe class="range-frame" id="ifr_${r.id}" src="${smallUrl}" loading="lazy"></iframe></div>
+          <div class="card-foot">
+            <button class="btn" data-act="expand">🔎 Expand</button>
+            <button class="btn blue" data-act="edit">✏️ Edit</button>
+            <button class="btn red" data-act="del">🗑 Delete</button>
+          </div>
+        `;
+
+        // wire buttons
+        card.querySelector('[data-act="expand"]').onclick = () => openModal(r.title, bigUrl, r.id);
+        card.querySelector('[data-act="edit"]').onclick    = () => promptEdit(r);
+        card.querySelector('[data-act="del"]').onclick     = () => { if(confirm('Delete this range?')){ PokerRangeStore.remove(r.id); render(); } };
+
+        gridEl.appendChild(card);
+      }
+    }
+
+    // auto-size iframes (no inner scrollbar)
+    window.addEventListener('message', (e)=>{
+      const d=e.data||{};
+      if(d.type==='rangeViewSize' && d.embedId){
+        const ifr=document.getElementById('ifr_'+d.embedId);
+        if(ifr) ifr.style.height = Math.max(180, Math.ceil(d.height)) + 'px';
+        // modal frame also reports; handled below
+        if(d.embedId==='MODAL_FRAME'){
+          const mf=document.getElementById('modalFrame');
+          if(mf) mf.style.height = Math.max(360, Math.ceil(d.height)) + 'px';
+        }
+      }
+    });
+
+    // Modal controls
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalFrame = document.getElementById('modalFrame');
+    const modalClose = document.getElementById('modalClose');
+
+    function openModal(title, url, originalId){
+      modalTitle.textContent = title;
+      // Make the modal iframe identifiable
+      const u = new URL(url, location.href);
+      u.searchParams.set('embedId', 'MODAL_FRAME');
+      modalFrame.src = u.toString();
+      modal.classList.add('open');
+    }
+    function closeModal(){
+      modal.classList.remove('open');
+      modalFrame.src = 'about:blank';
+    }
+    modalClose.onclick = closeModal;
+    modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+
+    // Buttons
+    document.getElementById('addBtn').onclick  = promptNew;
+    document.getElementById('exportBtn').onclick=()=>{const blob=new Blob([PokerRangeStore.export()],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='poker-ranges.json';a.click();URL.revokeObjectURL(url);};
+    document.getElementById('importBtn').onclick=()=>{const json=window.prompt('Paste JSON:');if(!json)return;try{PokerRangeStore.import(json);render();}catch{alert('Bad JSON')}};
+    document.getElementById('wipeBtn').onclick  =()=>{if(confirm('Delete ALL?')){ PokerRangeStore.clear(); render(); }};
+    document.getElementById('viewerBtn').onclick=()=>{const cur=getViewerUrl();const v=window.prompt('Viewer URL',cur)||cur;setViewerUrl(v.trim());render();};
+    document.getElementById('backBtn').onclick  =()=>{if(document.referrer)history.back();else location.href='../index.html';};
+    searchEl.oninput = render;
+
+    getViewerUrl(); // seed default
+    render();
+  </script>
+</body>
+</html>
