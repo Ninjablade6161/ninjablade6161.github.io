@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RangeView</title>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@100..900&display=swap');
+
+    :root {
+      --raise: #E62727;
+      --call:  #1E93AB;
+      --fold:  #526D82;
+      --cell:  40px;   /* cell size; overridden in embed via ?cell=NN */
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #9DB2BF;
+      font-family: "Heebo", system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      color: #27374D;
+      display: flex;
+      min-height: 100vh;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 12px;
+      overflow: hidden;
+    }
+
+    .grid-wrap {
+      background: #DDE6ED;
+      padding: 3px;
+      border-radius: 12px;
+      width: max-content;
+      overflow: hidden;
+    }
+
+    .range-table table { border-collapse: separate; border-spacing: 4px; table-layout: fixed; background: transparent; }
+    .range-table th, .range-table td {
+      background-color: var(--fold); color: #DDE6ED; text-align: center;
+      width: var(--cell); height: var(--cell); padding: 0; font-size: 12px; border-radius: 4px; user-select: none;
+    }
+    .range-table caption { caption-side: top; text-align: center; margin-bottom: 8px; font-weight: 700; color: #27374D; }
+    .cell-tooltip { position: fixed; background:#0f1117; color:#fff; padding:4px 8px; border-radius:6px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .12s; white-space:nowrap; z-index:1000; }
+
+    /* Round four corners */
+    [data-id="1"]{border-top-left-radius:8px} [data-id="13"]{border-top-right-radius:8px}
+    [data-id="157"]{border-bottom-left-radius:8px} [data-id="169"]{border-bottom-right-radius:8px}
+  </style>
+</head>
+
+<body>
+  <div id="tooltip" class="cell-tooltip"></div>
+
+  <div class="grid-wrap">
+    <div class="range-table" role="region" tabindex="0">
+      <table>
+        <caption id="cap"><p>Range</p></caption>
+        <thead>
+          <tr>
+            <th data-id="1">AA</th><th data-id="2">AKs</th><th data-id="3">AQs</th><th data-id="4">AJs</th><th data-id="5">ATs</th>
+            <th data-id="6">A9s</th><th data-id="7">A8s</th><th data-id="8">A7s</th><th data-id="9">A6s</th><th data-id="10">A5s</th>
+            <th data-id="11">A4s</th><th data-id="12">A3s</th><th data-id="13">A2s</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td data-id="14">AKo</td><td data-id="15">KK</td><td data-id="16">KQs</td><td data-id="17">KJs</td><td data-id="18">KTs</td><td data-id="19">K9s</td><td data-id="20">K8s</td><td data-id="21">K7s</td><td data-id="22">K6s</td><td data-id="23">K5s</td><td data-id="24">K4s</td><td data-id="25">K3s</td><td data-id="26">K2s</td></tr>
+          <tr><td data-id="27">AQo</td><td data-id="28">KQo</td><td data-id="29">QQ</td><td data-id="30">QJs</td><td data-id="31">QTs</td><td data-id="32">Q9s</td><td data-id="33">Q8s</td><td data-id="34">Q7s</td><td data-id="35">Q6s</td><td data-id="36">Q5s</td><td data-id="37">Q4s</td><td data-id="38">Q3s</td><td data-id="39">Q2s</td></tr>
+          <tr><td data-id="40">AJo</td><td data-id="41">KJo</td><td data-id="42">QJo</td><td data-id="43">JJ</td><td data-id="44">JTs</td><td data-id="45">J9s</td><td data-id="46">J8s</td><td data-id="47">J7s</td><td data-id="48">J6s</td><td data-id="49">J5s</td><td data-id="50">J4s</td><td data-id="51">J3s</td><td data-id="52">J2s</td></tr>
+          <tr><td data-id="53">ATo</td><td data-id="54">KTo</td><td data-id="55">QTo</td><td data-id="56">JTo</td><td data-id="57">TT</td><td data-id="58">T9s</td><td data-id="59">T8s</td><td data-id="60">T7s</td><td data-id="61">T6s</td><td data-id="62">T5s</td><td data-id="63">T4s</td><td data-id="64">T3s</td><td data-id="65">T2s</td></tr>
+          <tr><td data-id="66">A9o</td><td data-id="67">K9o</td><td data-id="68">Q9o</td><td data-id="69">J9o</td><td data-id="70">T9o</td><td data-id="71">99</td><td data-id="72">98s</td><td data-id="73">97s</td><td data-id="74">96s</td><td data-id="75">95s</td><td data-id="76">94s</td><td data-id="77">93s</td><td data-id="78">92s</td></tr>
+          <tr><td data-id="79">A8o</td><td data-id="80">K8o</td><td data-id="81">Q8o</td><td data-id="82">J8o</td><td data-id="83">T8o</td><td data-id="84">98o</td><td data-id="85">88</td><td data-id="86">87s</td><td data-id="87">86s</td><td data-id="88">85s</td><td data-id="89">84s</td><td data-id="90">83s</td><td data-id="91">82s</td></tr>
+          <tr><td data-id="92">A7o</td><td data-id="93">K7o</td><td data-id="94">Q7o</td><td data-id="95">J7o</td><td data-id="96">T7o</td><td data-id="97">97o</td><td data-id="98">87o</td><td data-id="99">77</td><td data-id="100">76s</td><td data-id="101">75s</td><td data-id="102">74s</td><td data-id="103">73s</td><td data-id="104">72s</td></tr>
+          <tr><td data-id="105">A6o</td><td data-id="106">K6o</td><td data-id="107">Q6o</td><td data-id="108">J6o</td><td data-id="109">T6o</td><td data-id="110">96o</td><td data-id="111">86o</td><td data-id="112">76o</td><td data-id="113">66</td><td data-id="114">65s</td><td data-id="115">64s</td><td data-id="116">63s</td><td data-id="117">62s</td></tr>
+          <tr><td data-id="118">A5o</td><td data-id="119">K5o</td><td data-id="120">Q5o</td><td data-id="121">J5o</td><td data-id="122">T5o</td><td data-id="123">95o</td><td data-id="124">85o</td><td data-id="125">75o</td><td data-id="126">65o</td><td data-id="127">55</td><td data-id="128">54s</td><td data-id="129">53s</td><td data-id="130">52s</td></tr>
+          <tr><td data-id="131">A4o</td><td data-id="132">K4o</td><td data-id="133">Q4o</td><td data-id="134">J4o</td><td data-id="135">T4o</td><td data-id="136">94o</td><td data-id="137">84o</td><td data-id="138">74o</td><td data-id="139">64o</td><td data-id="140">54o</td><td data-id="141">44</td><td data-id="142">43s</td><td data-id="143">42s</td></tr>
+          <tr><td data-id="144">A3o</td><td data-id="145">K3o</td><td data-id="146">Q3o</td><td data-id="147">J3o</td><td data-id="148">T3o</td><td data-id="149">93o</td><td data-id="150">83o</td><td data-id="151">73o</td><td data-id="152">63o</td><td data-id="153">53o</td><td data-id="154">43o</td><td data-id="155">33</td><td data-id="156">32s</td></tr>
+          <tr><td data-id="157">A2o</td><td data-id="158">K2o</td><td data-id="159">Q2o</td><td data-id="160">J2o</td><td data-id="161">T2o</td><td data-id="162">92o</td><td data-id="163">82o</td><td data-id="164">72o</td><td data-id="165">62o</td><td data-id="166">52o</td><td data-id="167">42o</td><td data-id="168">32o</td><td data-id="169">22</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    /* ----- rangeMaker.js (inline minimal needed bits to keep this file self-contained) ----- */
+    const defaultCrf = Array(169).fill("C00").join("?");
+    let tooltip = null;
+
+    function setHandMix(id, action1, action2, pct1) {
+      const cell = document.querySelector(`[data-id="${id}"]`);
+      if (!cell) return;
+      const root = getComputedStyle(document.documentElement);
+      const colors = {
+        raise: root.getPropertyValue("--raise").trim(),
+        call:  root.getPropertyValue("--call").trim(),
+        fold:  root.getPropertyValue("--fold").trim()
+      };
+      const color1 = colors[action1] || colors.fold;
+      const color2 = colors[action2] || colors.fold;
+      pct1 = Math.max(0, Math.min(100, +pct1 || 0));
+      const pct2 = 100 - pct1;
+
+      if (pct1 === 100)      cell.style.background = color1;
+      else if (pct1 === 0)   cell.style.background = color2;
+      else                   cell.style.background = `linear-gradient(90deg, ${color1} 0%, ${color1} ${pct1}%, ${color2} ${pct1}%, ${color2} 100%)`;
+
+      cell.dataset.mix = `${pct1}% raise / ${pct2}% ${action2}`;
+    }
+
+    function rangeReader(crf) {
+      const modules = (crf || defaultCrf).split("?");
+      if (modules.length !== 169) return;
+      modules.forEach((raw, i) => {
+        const mod = (raw || "").trim().toUpperCase();
+        const kind = mod[0];
+        const val  = mod.slice(1);
+        let pct = (val === "XX") ? 100 : parseInt(val, 10);
+        if (isNaN(pct)) pct = 0;
+        const id = i + 1;
+        if (kind === "A")      setHandMix(id, "raise", "call", pct);
+        else if (kind === "B") setHandMix(id, "raise", "fold", pct);
+        else if (kind === "C") setHandMix(id, "call",  "fold", pct);
+        else                   setHandMix(id, "fold",  "fold", 0);
+      });
+      document.dispatchEvent(new Event('range-painted'));
+    }
+    window.rangeReader = rangeReader;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      tooltip = document.getElementById("tooltip");
+      document.querySelectorAll("[data-id]").forEach(cell => {
+        cell.addEventListener("mousemove", (e) => {
+          if (!tooltip || !cell.dataset.mix) return;
+          tooltip.textContent = cell.dataset.mix;
+          tooltip.style.left = e.pageX + 10 + "px";
+          tooltip.style.top  = e.pageY + 10 + "px";
+          tooltip.style.opacity = 1;
+        });
+        cell.addEventListener("mouseleave", () => { if (tooltip) tooltip.style.opacity = 0; });
+      });
+      rangeReader(defaultCrf);
+    });
+  </script>
+
+  <!-- Robust URL loader + EMBED MODE -->
+  <script>
+    function normalizeBase64(s){ return (s||'').replace(/\s+/g,'').replace(/-/g,'+').replace(/_/g,'/').replace(/ /g,'+'); }
+    function normalizeCrf(text){
+      let t=(text||'').toUpperCase().replace(/[^\sA-C0-9X?]/g,''); t=t.replace(/\s+/g,'');
+      let parts=t.split('?').filter(Boolean); if(parts.length<169) return null; if(parts.length>169) parts=parts.slice(0,169);
+      return parts.join('?');
+    }
+
+    function sendSize(){
+      const sp = new URL(location.href).searchParams;
+      if (sp.get('embed') !== '1') return;
+      const embedId = sp.get('embedId') || '';
+      const box = document.querySelector('.grid-wrap');
+      if(!box) return;
+      const h = Math.ceil(box.getBoundingClientRect().height);
+      parent.postMessage({ type:'rangeViewSize', height:h, embedId }, '*');
+    }
+
+    function applyCrfFromUrl(){
+      const sp = new URL(location.href).searchParams;
+      // cell size override
+      const cell = parseInt(sp.get('cell')||'',10);
+      if(!isNaN(cell) && cell>10 && cell<80){
+        const style = document.createElement('style');
+        style.textContent = `:root{ --cell:${cell}px }`;
+        document.head.appendChild(style);
+      }
+
+      // remove caption if caption=0
+      if (sp.get('caption') === '0') {
+        const cap = document.getElementById('cap'); if (cap) cap.style.display = 'none';
+      }
+
+      // embed visual cleanup (but keep tooltip!)
+      if (sp.get('embed') === '1') {
+        const style = document.createElement('style');
+        style.textContent = `
+          html, body { margin:0 !important; padding:0 !important; background:transparent !important; display:block !important; overflow:hidden !important; }
+          .grid-wrap { background:transparent !important; padding:0 !important; border-radius:0 !important; }
+          .range-table table { border-spacing: 3px !important; }
+          /* keep tooltip visible */
+          body > :not(.grid-wrap):not(#tooltip) { display:none !important; }
+        `;
+        document.head.appendChild(style);
+      }
+
+      // CRF
+      let crf=null;
+      const b64raw = sp.get('b64');
+      if(b64raw){ try{ crf = atob(normalizeBase64(b64raw)); }catch{} }
+      if(!crf){ const raw = sp.get('crf'); if(raw){ try{ crf = decodeURIComponent(raw); }catch{ crf=raw; } } }
+      const cleaned = normalizeCrf(crf);
+      if(cleaned) window.rangeReader(cleaned);
+      setTimeout(sendSize, 30);
+    }
+
+    window.addEventListener('DOMContentLoaded', applyCrfFromUrl);
+    document.addEventListener('range-painted', ()=> setTimeout(sendSize, 10));
+    window.addEventListener('load', ()=> setTimeout(sendSize, 50));
+  </script>
+</body>
+</html>
