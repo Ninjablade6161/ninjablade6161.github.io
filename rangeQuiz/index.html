@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Preflop Flashcards</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --felt: #121826;
+        --ink: #e5e7eb;
+        --mut: #94a3b8;
+        --border: #1f2937;
+        --btn: #0f172a;
+        --accent: #00e5a8;
+        --raiseHover: #f83c3c; /* requested */
+        --callHover: #3a7bff; /* requested */
+        --drawerBg: #0a1220;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, #0a0f1e, #0e1426);
+        color: var(--ink);
+        font:
+          14px/1.4 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Inter,
+          Arial;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+      }
+      .sub {
+        color: #94a3b8;
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+
+      .card {
+        background: #0f172a;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+        margin-bottom: 14px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      label {
+        font-size: 13px;
+        color: #cbd5e1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      select,
+      input[type="number"] {
+        background: #0b1220;
+        border: 1px solid var(--border);
+        color: var(--ink);
+        padding: 10px 12px;
+        border-radius: 10px;
+        min-width: 140px;
+      }
+      .btn {
+        background: var(--btn);
+        border: 1px solid var(--border);
+        color: var(--ink);
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition:
+          transform 0.06s,
+          box-shadow 0.12s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+      }
+      .primary {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.4);
+      }
+      .danger {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.35);
+      }
+      .ghost {
+        background: #0b1220;
+      }
+      .checkrow {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: #cbd5e1;
+        font-size: 13px;
+      }
+
+      /* Stage */
+      .stageHead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .title {
+        font-weight: 700;
+      }
+      .stage {
+        background: var(--felt);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+          0 20px 50px rgba(0, 0, 0, 0.4);
+      }
+      .table-wrap {
+        position: relative;
+        min-height: 460px;
+        background: radial-gradient(
+          110% 72% at 50% 48%,
+          #1a2337 0%,
+          #141c2e 70%,
+          #111827 100%
+        );
+        border-radius: 800px;
+        border: 2px solid #1f2937;
+      }
+      .seats {
+        position: absolute;
+        inset: 0;
+      }
+      .seat {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .pos {
+        background: #0b1220;
+        border: 1px solid #2a3a59;
+        color: #e2e8f0;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-weight: 600;
+      }
+      .hero .pos {
+        outline: 2px solid var(--accent);
+        box-shadow: 0 0 0 3px rgba(0, 229, 168, 0.1);
+      }
+      .pot {
+        position: absolute;
+        left: 50%;
+        top: 36%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #cbd5e1;
+      }
+      .pot h3 {
+        margin: 0;
+        font-size: 14px;
+        color: #e2e8f0;
+      }
+      .pot small {
+        color: #94a3b8;
+      }
+
+      /* Hero chip fixed bottom-center; hand offset so it never covers center */
+      .hero-seat {
+        position: absolute;
+        left: 50%;
+        top: 83%;
+        transform: translate(-50%, -50%);
+      }
+      .hand {
+        position: absolute;
+        left: 64%;
+        top: 74%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        gap: 10px;
+      }
+      @media (max-width: 900px) {
+        .hand {
+          left: 62%;
+          top: 72%;
+        }
+      }
+      .card2 {
+        width: 64px;
+        height: 88px;
+        border-radius: 10px;
+        background: #0b1220;
+        border: 1px solid #2b3b5e;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 24px;
+      }
+      .pip {
+        line-height: 1;
+      }
+      .suit {
+        font-size: 14px;
+        opacity: 0.95;
+        margin-top: 2px;
+      }
+      .red {
+        color: #ff7373;
+      }
+      .red .suit {
+        color: #ff9d9d;
+      }
+      .black {
+        color: #86c9ff;
+      }
+      .black .suit {
+        color: #b6e0ff;
+      }
+
+      /* Actions */
+      .actions {
+        display: flex;
+        gap: 14px;
+        justify-content: center;
+        margin-top: 26px;
+      }
+      .bigbtn {
+        min-width: 200px;
+        padding: 16px 18px;
+        border-radius: 12px;
+        border: 1px solid #26334f;
+        background: #0b1220;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+      }
+      .bigbtn.raise {
+        background: rgba(239, 68, 68, 0.14);
+        border-color: rgba(239, 68, 68, 0.4);
+      }
+      .bigbtn.call {
+        background: rgba(59, 130, 246, 0.14);
+        border-color: rgba(59, 130, 246, 0.4);
+      }
+      .bigbtn.fold {
+        background: rgba(148, 163, 184, 0.12);
+        border-color: rgba(148, 163, 184, 0.35);
+        color: #cbd5e1;
+      }
+      .bigbtn.raise:hover {
+        background: var(--raiseHover);
+        border-color: var(--raiseHover);
+        color: #fff;
+      }
+      .bigbtn.call:hover {
+        background: var(--callHover);
+        border-color: var(--callHover);
+        color: #fff;
+      }
+      .bigbtn.fold:hover {
+        filter: brightness(1.1);
+      }
+      .bigbtn:active {
+        transform: translateY(1px);
+      }
+      .result {
+        margin-top: 12px;
+        text-align: center;
+      }
+      .correct {
+        color: #22c55e;
+      }
+      .wrong {
+        color: #ef4444;
+      }
+      .partial {
+        color: #f59e0b;
+      }
+      .info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        color: #94a3b8;
+        font-size: 12px;
+      }
+
+      /* Range drawer + toggle */
+      .range-toggle {
+        position: fixed;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #0b1220;
+        border: 1px solid #26334f;
+        color: #e5e7eb;
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        z-index: 1001;
+      }
+      .range-toggle:hover {
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        transform: translateY(-50%) translateX(1px);
+      }
+      .drawer {
+        position: fixed;
+        right: 0;
+        top: 0;
+        height: 100vh;
+        width: min(560px, 45vw);
+        background: var(--drawerBg);
+        border-left: 1px solid #22304d;
+        box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+        transform: translateX(100%);
+        transition: transform 0.22s ease;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+      }
+      .drawer.open {
+        transform: translateX(0);
+      }
+      .drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid #1f2937;
+      }
+      .drawer-title {
+        font-weight: 700;
+      }
+      .drawer-close {
+        background: #23161a;
+        border: 1px solid #3a2230;
+        color: #e5e7eb;
+        padding: 6px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .drawer-body {
+        flex: 1;
+        min-height: 0;
+      }
+      .drawer iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+
+      /* BIG center verdict toast */
+      .flashToast {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(0.92);
+        background: rgba(12, 18, 30, 0.9);
+        border: 1px solid #2a3b5f;
+        color: #e5eefb;
+        padding: 18px 22px;
+        border-radius: 14px;
+        text-align: center;
+        z-index: 1100;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        opacity: 0;
+        transition:
+          opacity 0.18s ease,
+          transform 0.18s ease;
+        min-width: 280px;
+      }
+      .flashToast.show {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      .flashToast .big {
+        font-size: 26px;
+        font-weight: 900;
+        letter-spacing: 0.3px;
+        margin-bottom: 6px;
+      }
+      .flashToast .sub {
+        font-size: 14px;
+        color: #b9d2ff;
+      }
+      .flashToast.correct {
+        border-color: #1b8f50;
+      }
+      .flashToast.wrong {
+        border-color: #a63434;
+      }
+      .flashToast.partial {
+        border-color: #b27c26;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Preflop Flashcards</h1>
+      <div class="sub">
+        Infinite questions. Pick players, position, and a range. Keys:
+        <b>R</b>=Raise, <b>C</b>=Call, <b>F</b>=Fold (1/2/3 also work).
+      </div>
+
+      <!-- Setup -->
+      <div class="card" id="setup">
+        <div class="row">
+          <label
+            ># Players
+            <input id="players" type="number" min="2" max="9" value="6" />
+          </label>
+          <label
+            >Your Position
+            <select id="posSel"></select>
+          </label>
+          <label
+            >Range
+            <select id="rangeSel"></select>
+          </label>
+        </div>
+        <div class="row" style="margin-top: 10px">
+          <div class="checkrow">
+            <input type="checkbox" id="weightedToggle" />
+            <label for="weightedToggle" style="margin: 0"
+              >Weighted sampler (skip most pure folds)</label
+            >
+          </div>
+        </div>
+        <div class="row" style="margin-top: 10px">
+          <button class="btn primary" id="startBtn">Start</button>
+          <button class="btn ghost" id="refreshBtn">↻ Reload Ranges</button>
+        </div>
+      </div>
+
+      <!-- Stage -->
+      <div class="card" id="stage" style="display: none">
+        <div class="stageHead">
+          <div class="title" id="rangeTitle">Range</div>
+          <button class="btn danger" id="stopBtn">⏹ Stop</button>
+        </div>
+
+        <div class="stage">
+          <div class="table-wrap">
+            <div class="seats" id="seats"></div>
+
+            <!-- hero is always bottom-center -->
+            <div class="hero-seat">
+              <div class="pos" id="heroChip">HERO</div>
+            </div>
+
+            <div class="pot">
+              <h3>100bb</h3>
+              <small id="spotName"></small>
+            </div>
+            <div class="hand" id="hand"></div>
+          </div>
+
+          <div class="actions">
+            <button class="bigbtn fold" data-act="FOLD">FOLD</button>
+            <button class="bigbtn call" data-act="CALL">CALL</button>
+            <button class="bigbtn raise" data-act="RAISE">RAISE</button>
+          </div>
+
+          <div class="result" id="result"></div>
+          <div class="info">
+            <div id="progress">∞ mode</div>
+            <div id="mixInfo"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating toggle + right drawer -->
+    <button id="openRange" class="range-toggle" title="Open range viewer">
+      🗂 Range
+    </button>
+    <div id="rangeDrawer" class="drawer" aria-hidden="true">
+      <div class="drawer-header">
+        <div class="drawer-title" id="drawerTitle">Range Viewer</div>
+        <button class="drawer-close" id="closeDrawer">✕</button>
+      </div>
+      <div class="drawer-body">
+        <iframe id="rangeFrame" src="about:blank" title="RangeView"></iframe>
+      </div>
+    </div>
+
+    <!-- Center verdict -->
+    <div id="flashToast" class="flashToast" aria-live="polite">
+      <div class="big" id="toastBig">Correct</div>
+      <div class="sub" id="toastSub">60% raise / 40% call</div>
+    </div>
+
+    <script>
+      /* ===== positions ===== */
+      const POS_BY_PLAYERS = {
+        2: ["SB", "BB"],
+        3: ["BTN", "SB", "BB"],
+        4: ["CO", "BTN", "SB", "BB"],
+        5: ["HJ", "CO", "BTN", "SB", "BB"],
+        6: ["UTG", "HJ", "CO", "BTN", "SB", "BB"],
+        7: ["UTG", "UTG+1", "HJ", "CO", "BTN", "SB", "BB"],
+        8: ["UTG", "UTG+1", "LJ", "HJ", "CO", "BTN", "SB", "BB"],
+        9: ["UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO", "BTN", "SB", "BB"],
+      };
+      const HAND_LABELS = [
+        "AA",
+        "AKs",
+        "AQs",
+        "AJs",
+        "ATs",
+        "A9s",
+        "A8s",
+        "A7s",
+        "A6s",
+        "A5s",
+        "A4s",
+        "A3s",
+        "A2s",
+        "AKo",
+        "KK",
+        "KQs",
+        "KJs",
+        "KTs",
+        "K9s",
+        "K8s",
+        "K7s",
+        "K6s",
+        "K5s",
+        "K4s",
+        "K3s",
+        "K2s",
+        "AQo",
+        "KQo",
+        "QQ",
+        "QJs",
+        "QTs",
+        "Q9s",
+        "Q8s",
+        "Q7s",
+        "Q6s",
+        "Q5s",
+        "Q4s",
+        "Q3s",
+        "Q2s",
+        "AJo",
+        "KJo",
+        "QJo",
+        "JJ",
+        "JTs",
+        "J9s",
+        "J8s",
+        "J7s",
+        "J6s",
+        "J5s",
+        "J4s",
+        "J3s",
+        "J2s",
+        "ATo",
+        "KTo",
+        "QTo",
+        "JTo",
+        "TT",
+        "T9s",
+        "T8s",
+        "T7s",
+        "T6s",
+        "T5s",
+        "T4s",
+        "T3s",
+        "T2s",
+        "A9o",
+        "K9o",
+        "Q9o",
+        "J9o",
+        "T9o",
+        "99",
+        "98s",
+        "97s",
+        "96s",
+        "95s",
+        "94s",
+        "93s",
+        "92s",
+        "A8o",
+        "K8o",
+        "Q8o",
+        "J8o",
+        "T8o",
+        "98o",
+        "88",
+        "87s",
+        "86s",
+        "85s",
+        "84s",
+        "83s",
+        "82s",
+        "A7o",
+        "K7o",
+        "Q7o",
+        "J7o",
+        "T7o",
+        "97o",
+        "87o",
+        "77",
+        "76s",
+        "75s",
+        "74s",
+        "73s",
+        "72s",
+        "A6o",
+        "K6o",
+        "Q6o",
+        "J6o",
+        "T6o",
+        "96o",
+        "86o",
+        "76o",
+        "66",
+        "65s",
+        "64s",
+        "63s",
+        "62s",
+        "A5o",
+        "K5o",
+        "Q5o",
+        "J5o",
+        "T5o",
+        "95o",
+        "85o",
+        "75o",
+        "65o",
+        "55",
+        "54s",
+        "53s",
+        "52s",
+        "A4o",
+        "K4o",
+        "Q4o",
+        "J4o",
+        "T4o",
+        "94o",
+        "84o",
+        "74o",
+        "64o",
+        "54o",
+        "44",
+        "43s",
+        "42s",
+        "A3o",
+        "K3o",
+        "Q3o",
+        "J3o",
+        "T3o",
+        "93o",
+        "83o",
+        "73o",
+        "63o",
+        "53o",
+        "43o",
+        "33",
+        "32s",
+        "A2o",
+        "K2o",
+        "Q2o",
+        "J2o",
+        "T2o",
+        "92o",
+        "82o",
+        "72o",
+        "62o",
+        "52o",
+        "42o",
+        "32o",
+        "22",
+      ];
+
+      /* ===== utilities ===== */
+      function getRanges() {
+        try {
+          const s = localStorage.getItem("pokerRanges.v1") || "[]";
+          const a = JSON.parse(s);
+          return Array.isArray(a) ? a : [];
+        } catch {
+          return [];
+        }
+      }
+      function parseCrf(crf) {
+        const mods = (crf || "").split("?");
+        const out = [];
+        for (let i = 0; i < 169; i++) {
+          const t = (mods[i] || "").trim().toUpperCase();
+          const k = t[0] || "C";
+          const v = t.slice(1);
+          let pct = v === "XX" ? 100 : parseInt(v, 10);
+          if (isNaN(pct)) pct = 0;
+          out.push({ id: i, label: HAND_LABELS[i], kind: k, pct });
+        }
+        return out;
+      }
+      function weightedPick(mods) {
+        const w = mods.map((m) => {
+          const pureFold =
+            (m.kind === "B" && m.pct === 0) || (m.kind === "C" && m.pct === 0);
+          if (pureFold) return 0.03;
+          const mix = (m.pct / 100) * (1 - m.pct / 100);
+          let s = 0.15 + mix * 3.2;
+          if (/^(AA|KK|QQ|JJ|TT|AK|AQ)/.test(m.label)) s += 0.08;
+          return Math.max(0.05, Math.min(1.2, s));
+        });
+        let S = w.reduce((a, b) => a + b, 0),
+          r = Math.random() * S;
+        for (let i = 0; i < mods.length; i++) {
+          r -= w[i];
+          if (r <= 0) return mods[i];
+        }
+        return mods[mods.length - 1];
+      }
+
+      /* ===== seat layout: hero bottom-center; others evenly spaced (no overlap) ===== */
+      function otherSeatPositions(n) {
+        const cx = 50,
+          cy = 50,
+          rx = 38,
+          ry = 34;
+        const slots = n - 1;
+        const step = (2 * Math.PI) / slots;
+        let start = -Math.PI / 2; // top
+        if (slots % 2 === 0) start += step / 2; // avoid bottom-center
+        const pos = [];
+        for (let j = 0; j < slots; j++) {
+          const a = start + j * step;
+          pos.push({
+            left: `${cx + rx * Math.cos(a)}%`,
+            top: `${cy + ry * Math.sin(a)}%`,
+          });
+        }
+        return pos;
+      }
+      function drawSeats(n, heroLabel) {
+        const labels = POS_BY_PLAYERS[n].slice();
+        const heroIdx = labels.indexOf(heroLabel);
+        const others = labels.filter((_, i) => i !== heroIdx);
+
+        document.getElementById("heroChip").textContent = heroLabel;
+
+        const positions = otherSeatPositions(n);
+        const box = document.getElementById("seats");
+        box.innerHTML = "";
+        for (let i = 0; i < others.length; i++) {
+          const d = document.createElement("div");
+          d.className = "seat";
+          d.style.left = positions[i].left;
+          d.style.top = positions[i].top;
+          d.style.transform = "translate(-50%,-50%)";
+          d.innerHTML = `<div class="pos">${others[i]}</div>`;
+          box.appendChild(d);
+        }
+      }
+
+      /* ===== suits & hand ===== */
+      const SUITS = ["♠", "♥", "♦", "♣"];
+      const REDS = new Set(["♥", "♦"]);
+      function rndSuited() {
+        const s = SUITS[Math.floor(Math.random() * 4)];
+        return [s, s];
+      }
+      function rndOff() {
+        let a = SUITS[Math.floor(Math.random() * 4)],
+          b = SUITS[Math.floor(Math.random() * 4)];
+        while (b === a) b = SUITS[Math.floor(Math.random() * 4)];
+        return [a, b];
+      }
+      function renderHand(label) {
+        const handEl = document.getElementById("hand");
+        handEl.innerHTML = "";
+        const suited = /s$/.test(label),
+          offs = /o$/.test(label),
+          pair = /^[2-9TJQKA]{2}$/.test(label);
+        const ranks = [label[0], label[1]];
+        let suits;
+        if (suited) suits = rndSuited();
+        else if (offs || pair) suits = rndOff();
+        else suits = rndOff();
+        const make = (r, s) => {
+          const c = document.createElement("div");
+          c.className = "card2 " + (REDS.has(s) ? "red" : "black");
+          c.innerHTML = `<div class="pip">${r}</div><div class="suit">${s}</div>`;
+          return c;
+        };
+        handEl.appendChild(make(ranks[0], suits[0]));
+        handEl.appendChild(make(ranks[1], suits[1]));
+      }
+
+      /* ===== RangeView URL (FIXED PATH) ===== */
+      function buildRangeViewUrl(crfText) {
+        const base = new URL(
+          "../RangeView/index.html",
+          location.href,
+        ).toString(); // <-- fixed
+        const b64 = btoa(unescape(encodeURIComponent(crfText || "")));
+        const u = new URL(base);
+        u.searchParams.set("b64", b64);
+        return u.toString();
+      }
+
+      /* ===== quiz state ===== */
+      const state = {
+        players: 6,
+        pos: "UTG",
+        range: null,
+        current: null,
+        weighted: false,
+      };
+
+      function setupSelectors() {
+        const pIn = document.getElementById("players");
+        const posSel = document.getElementById("posSel");
+        function fillPos() {
+          const n = Math.max(2, Math.min(9, parseInt(pIn.value || "6", 10)));
+          posSel.innerHTML = POS_BY_PLAYERS[n]
+            .map((p) => `<option value="${p}">${p}</option>`)
+            .join("");
+        }
+        pIn.oninput = fillPos;
+        fillPos();
+
+        const rSel = document.getElementById("rangeSel");
+        const ranges = getRanges().sort(
+          (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
+        );
+        rSel.innerHTML = ranges.length
+          ? ranges
+              .map((r) => `<option value="${r.id}">${r.title}</option>`)
+              .join("")
+          : `<option value="">No saved ranges found</option>`;
+      }
+
+      /* ===== verdict toast ===== */
+      let toastTimer = null;
+      function showToast(kind, big, sub) {
+        const t = document.getElementById("flashToast");
+        t.className = "flashToast " + kind;
+        document.getElementById("toastBig").textContent = big;
+        document.getElementById("toastSub").textContent = sub || "";
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove("show"), 1100);
+      }
+
+      function start() {
+        const n = Math.max(
+          2,
+          Math.min(
+            9,
+            parseInt(document.getElementById("players").value || "6", 10),
+          ),
+        );
+        const pos = document.getElementById("posSel").value;
+        const rId = document.getElementById("rangeSel").value;
+        const weighted = document.getElementById("weightedToggle").checked;
+
+        const ranges = getRanges();
+        const chosen = ranges.find((r) => r.id === rId);
+        if (!chosen) {
+          alert("Pick a range first.");
+          return;
+        }
+
+        state.players = n;
+        state.pos = pos;
+        state.weighted = weighted;
+        state.range = { ...chosen, mods: parseCrf(chosen.text || "") };
+
+        document.getElementById("rangeTitle").textContent =
+          chosen.title || "Range";
+        document.getElementById("drawerTitle").textContent =
+          chosen.title || "Range Viewer";
+        document.getElementById("spotName").textContent = `${n}max ${pos}`;
+        document.getElementById("setup").style.display = "none";
+        document.getElementById("stage").style.display = "";
+
+        // prepare drawer iframe
+        document.getElementById("rangeFrame").src = buildRangeViewUrl(
+          chosen.text || "",
+        );
+
+        drawSeats(n, pos);
+        nextQuestion();
+      }
+      function stop() {
+        document.getElementById("stage").style.display = "none";
+        document.getElementById("setup").style.display = "";
+        document.getElementById("result").textContent = "";
+        document.getElementById("mixInfo").textContent = "";
+      }
+      function pickMod() {
+        return state.weighted
+          ? weightedPick(state.range.mods)
+          : state.range.mods[
+              Math.floor(Math.random() * state.range.mods.length)
+            ];
+      }
+      function nextQuestion() {
+        state.current = pickMod();
+        renderHand(state.current.label);
+        document.getElementById("result").textContent = "";
+        document.getElementById("mixInfo").textContent = "";
+      }
+      function grade(action) {
+        const m = state.current;
+        let a1, a2;
+        if (m.kind === "A") {
+          a1 = "RAISE";
+          a2 = "CALL";
+        } else if (m.kind === "B") {
+          a1 = "RAISE";
+          a2 = "FOLD";
+        } else {
+          a1 = "CALL";
+          a2 = "FOLD";
+        }
+        const pct = m.pct,
+          top = pct >= 50 ? a1 : a2;
+        const mix = `${pct}% ${a1.toLowerCase()} / ${100 - pct}% ${a2.toLowerCase()}`;
+        document.getElementById("mixInfo").textContent = `${m.label}: ${mix}`;
+
+        if (action === top) showToast("correct", "Correct", mix);
+        else if (Math.abs(pct - 50) <= 15) showToast("partial", "Close", mix);
+        else showToast("wrong", "Wrong", mix);
+
+        setTimeout(nextQuestion, 650);
+      }
+
+      /* ===== Range drawer controls ===== */
+      const drawer = document.getElementById("rangeDrawer");
+      document.getElementById("openRange").onclick = () =>
+        drawer.classList.add("open");
+      document.getElementById("closeDrawer").onclick = () =>
+        drawer.classList.remove("open");
+
+      /* ===== wire UI ===== */
+      setupSelectors();
+      document.getElementById("refreshBtn").onclick = setupSelectors;
+      document.getElementById("startBtn").onclick = start;
+      document.getElementById("stopBtn").onclick = stop;
+      document
+        .querySelectorAll(".actions .bigbtn")
+        .forEach((b) =>
+          b.addEventListener("click", () => grade(b.dataset.act)),
+        );
+      window.addEventListener("keydown", (e) => {
+        if (document.getElementById("stage").style.display === "none") return;
+        // numbers
+        if (e.key === "1") grade("RAISE");
+        if (e.key === "2") grade("CALL");
+        if (e.key === "3") grade("FOLD");
+        // letters
+        if (e.key === "r" || e.key === "R") grade("RAISE");
+        if (e.key === "c" || e.key === "C") grade("CALL");
+        if (e.key === "f" || e.key === "F") grade("FOLD");
+      });
+      window.addEventListener("resize", () =>
+        drawSeats(state.players, state.pos),
+      );
+    </script>
+  </body>
+</html>
