@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Range Maker</title>
+<!-- Style tag for the range table -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@100..900&display=swap');
+
+    :root {
+      --raise: #E62727;
+      --call:  #1E93AB;
+      --fold:  #526D82; /* current square background */
+    }
+    
+    body {
+      background: #9DB2BF;
+      font-family: "Heebo", sans-serif;
+    }
+
+    .grid-wrap {
+      background: #DDE6ED;
+      padding: 3px;
+      border-radius: 12px;
+      width: max-content;
+      margin: 20px auto;
+      overflow: hidden;
+    }
+
+    .range-table table {
+      border-collapse: separate;
+      border-spacing: 4px;
+      table-layout: fixed;
+      background: transparent;
+    }
+
+    .range-table caption {
+      caption-side: top;
+      text-align: center;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #27374D;
+    }
+
+    .range-table th,
+    .range-table td {
+      background-color: var(--fold);
+      color: #DDE6ED;
+      text-align: center;
+      width: 60px;
+      height: 60px;
+      padding: 0;
+      font: 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
+    }
+
+    .cell-tooltip {
+      position: absolute;
+      background: #0f1117;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+      z-index: 1000;
+    }
+
+    /* Round four corners */
+    [data-id="1"]   { border-top-left-radius: 8px; }    /* AA */
+    [data-id="13"]  { border-top-right-radius: 8px; }   /* A2s */
+    [data-id="157"] { border-bottom-left-radius: 8px; } /* A2o */
+    [data-id="169"] { border-bottom-right-radius: 8px; }/* 22 */
+  </style>
+
+  <style>
+    /* Make widths include padding/border so things don't overflow */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* Sidebar (left, vertically centered) */
+    .sidebar{
+      position: fixed;
+      top: 50%;
+      left: 20px;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 1000;
+    }
+    .btn-rect{
+      width: 160px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      background: #27374D;
+      border: 2px solid #DDE6ED;
+      color: #DDE6ED;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,.15);
+      transition: transform .05s ease, filter .15s ease;
+    }
+    .btn-rect:hover{ filter: brightness(1.05); transform: translateY(-1px); }
+    .btn-rect:active{ transform: translateY(0); }
+
+    /* Backdrop centers modal and works on all screen sizes */
+    .modal-backdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none;                 /* toggled via JS */
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 0;                    /* avoid shifting/overflow */
+    }
+
+    /* Modal is a flex column; constrained width & height */
+    .modal{
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: min(800px, 92vw);
+      max-height: 92vh;
+      overflow: auto;                /* scroll if content taller than viewport */
+      background: #13202f;
+      border: 2px solid #DDE6ED;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      padding: 16px;
+      color: #DDE6ED;
+    }
+
+    .modal h3{
+      margin: 0;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .hint{
+      color: #b9c6cf;
+      font-size: 13px;
+      margin: 0;
+    }
+
+    /* Textarea fits INSIDE the modal now (border-box) */
+    .modal textarea{
+      display: block;
+      width: 100%;
+      height: clamp(140px, 40vh, 50vh);   /* responsive height */
+      background: #0e1824;
+      color: #e8eef3;
+      border: 1px solid #3b4a5b;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.35;
+      resize: vertical;
+    }
+
+    /* Buttons row stays inside and can wrap on tiny screens */
+    .row{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .btn{
+      background: #1f2f43;
+      border: 1px solid #DDE6ED;
+      color: #e8eef3;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .btn.primary{ background: #1f5e7a; }
+    .btn:hover{ filter: brightness(1.05); }
+
+    .error{
+      color: #ff9aa2;
+      font-size: 13px;
+      margin-right: auto;
+      visibility: hidden; /* toggled via JS */
+    }
+
+  </style>
+</head>
+
+<body>
+  <!-- Left sidebar buttons -->
+  <aside class="sidebar">
+    <a id="btn-back" class="btn-rect" href="../index.html">Back</a>
+    <button id="btn-load" class="btn-rect">Load Range</button>
+    <button id="btn-edit" class="btn-rect">Edit Range</button>
+    <button id="btn-reset" class="btn-rect">Reset</button>
+  </aside>
+
+  <!-- CRF Modal -->
+  <div id="crf-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="crf-title">
+      <h3 id="crf-title">Load CRF Range</h3>
+      <p class="hint">
+        Paste 169 modules separated by “?” (e.g., <code>AXX?B60?C00?…</code>).<br>
+        A = raise/call, B = raise/fold, C = call/fold. Two chars are the % for the first action (use <code>XX</code> for 100).
+      </p>
+      <textarea id="crf-input" placeholder="AXX?B60?C00?… (169 modules total)"></textarea>
+      <div class="row">
+        <span id="crf-error" class="error" role="alert">Invalid length</span>
+        <button id="crf-cancel" class="btn">Cancel</button>
+        <button id="crf-load" class="btn primary">Load</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="tooltip" class="cell-tooltip"></div>
+  <div class="grid-wrap">
+    <div class="range-table" role="region" tabindex="0">
+      <table>
+        <caption><p>Range</p></caption>
+        <thead>
+          <tr>
+            <th data-id="1">AA</th>
+            <th data-id="2">AKs</th>
+            <th data-id="3">AQs</th>
+            <th data-id="4">AJs</th>
+            <th data-id="5">ATs</th>
+            <th data-id="6">A9s</th>
+            <th data-id="7">A8s</th>
+            <th data-id="8">A7s</th>
+            <th data-id="9">A6s</th>
+            <th data-id="10">A5s</th>
+            <th data-id="11">A4s</th>
+            <th data-id="12">A3s</th>
+            <th data-id="13">A2s</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-id="14">AKo</td>
+            <td data-id="15">KK</td>
+            <td data-id="16">KQs</td>
+            <td data-id="17">KJs</td>
+            <td data-id="18">KTs</td>
+            <td data-id="19">K9s</td>
+            <td data-id="20">K8s</td>
+            <td data-id="21">K7s</td>
+            <td data-id="22">K6s</td>
+            <td data-id="23">K5s</td>
+            <td data-id="24">K4s</td>
+            <td data-id="25">K3s</td>
+            <td data-id="26">K2s</td>
+          </tr>
+          <tr>
+            <td data-id="27">AQo</td>
+            <td data-id="28">KQo</td>
+            <td data-id="29">QQ</td>
+            <td data-id="30">QJs</td>
+            <td data-id="31">QTs</td>
+            <td data-id="32">Q9s</td>
+            <td data-id="33">Q8s</td>
+            <td data-id="34">Q7s</td>
+            <td data-id="35">Q6s</td>
+            <td data-id="36">Q5s</td>
+            <td data-id="37">Q4s</td>
+            <td data-id="38">Q3s</td>
+            <td data-id="39">Q2s</td>
+          </tr>
+          <tr>
+            <td data-id="40">AJo</td>
+            <td data-id="41">KJo</td>
+            <td data-id="42">QJo</td>
+            <td data-id="43">JJ</td>
+            <td data-id="44">JTs</td>
+            <td data-id="45">J9s</td>
+            <td data-id="46">J8s</td>
+            <td data-id="47">J7s</td>
+            <td data-id="48">J6s</td>
+            <td data-id="49">J5s</td>
+            <td data-id="50">J4s</td>
+            <td data-id="51">J3s</td>
+            <td data-id="52">J2s</td>
+          </tr>
+          <tr>
+            <td data-id="53">ATo</td>
+            <td data-id="54">KTo</td>
+            <td data-id="55">QTo</td>
+            <td data-id="56">JTo</td>
+            <td data-id="57">TT</td>
+            <td data-id="58">T9s</td>
+            <td data-id="59">T8s</td>
+            <td data-id="60">T7s</td>
+            <td data-id="61">T6s</td>
+            <td data-id="62">T5s</td>
+            <td data-id="63">T4s</td>
+            <td data-id="64">T3s</td>
+            <td data-id="65">T2s</td>
+          </tr>
+          <tr>
+            <td data-id="66">A9o</td>
+            <td data-id="67">K9o</td>
+            <td data-id="68">Q9o</td>
+            <td data-id="69">J9o</td>
+            <td data-id="70">T9o</td>
+            <td data-id="71">99</td>
+            <td data-id="72">98s</td>
+            <td data-id="73">97s</td>
+            <td data-id="74">96s</td>
+            <td data-id="75">95s</td>
+            <td data-id="76">94s</td>
+            <td data-id="77">93s</td>
+            <td data-id="78">92s</td>
+          </tr>
+          <tr>
+            <td data-id="79">A8o</td>
+            <td data-id="80">K8o</td>
+            <td data-id="81">Q8o</td>
+            <td data-id="82">J8o</td>
+            <td data-id="83">T8o</td>
+            <td data-id="84">98o</td>
+            <td data-id="85">88</td>
+            <td data-id="86">87s</td>
+            <td data-id="87">86s</td>
+            <td data-id="88">85s</td>
+            <td data-id="89">84s</td>
+            <td data-id="90">83s</td>
+            <td data-id="91">82s</td>
+          </tr>
+          <tr>
+            <td data-id="92">A7o</td>
+            <td data-id="93">K7o</td>
+            <td data-id="94">Q7o</td>
+            <td data-id="95">J7o</td>
+            <td data-id="96">T7o</td>
+            <td data-id="97">97o</td>
+            <td data-id="98">87o</td>
+            <td data-id="99">77</td>
+            <td data-id="100">76s</td>
+            <td data-id="101">75s</td>
+            <td data-id="102">74s</td>
+            <td data-id="103">73s</td>
+            <td data-id="104">72s</td>
+          </tr>
+          <tr>
+            <td data-id="105">A6o</td>
+            <td data-id="106">K6o</td>
+            <td data-id="107">Q6o</td>
+            <td data-id="108">J6o</td>
+            <td data-id="109">T6o</td>
+            <td data-id="110">96o</td>
+            <td data-id="111">86o</td>
+            <td data-id="112">76o</td>
+            <td data-id="113">66</td>
+            <td data-id="114">65s</td>
+            <td data-id="115">64s</td>
+            <td data-id="116">63s</td>
+            <td data-id="117">62s</td>
+          </tr>
+          <tr>
+            <td data-id="118">A5o</td>
+            <td data-id="119">K5o</td>
+            <td data-id="120">Q5o</td>
+            <td data-id="121">J5o</td>
+            <td data-id="122">T5o</td>
+            <td data-id="123">95o</td>
+            <td data-id="124">85o</td>
+            <td data-id="125">75o</td>
+            <td data-id="126">65o</td>
+            <td data-id="127">55</td>
+            <td data-id="128">54s</td>
+            <td data-id="129">53s</td>
+            <td data-id="130">52s</td>
+          </tr>
+          <tr>
+            <td data-id="131">A4o</td>
+            <td data-id="132">K4o</td>
+            <td data-id="133">Q4o</td>
+            <td data-id="134">J4o</td>
+            <td data-id="135">T4o</td>
+            <td data-id="136">94o</td>
+            <td data-id="137">84o</td>
+            <td data-id="138">74o</td>
+            <td data-id="139">64o</td>
+            <td data-id="140">54o</td>
+            <td data-id="141">44</td>
+            <td data-id="142">43s</td>
+            <td data-id="143">42s</td>
+          </tr>
+          <tr>
+            <td data-id="144">A3o</td>
+            <td data-id="145">K3o</td>
+            <td data-id="146">Q3o</td>
+            <td data-id="147">J3o</td>
+            <td data-id="148">T3o</td>
+            <td data-id="149">93o</td>
+            <td data-id="150">83o</td>
+            <td data-id="151">73o</td>
+            <td data-id="152">63o</td>
+            <td data-id="153">53o</td>
+            <td data-id="154">43o</td>
+            <td data-id="155">33</td>
+            <td data-id="156">32s</td>
+          </tr>
+          <tr>
+            <td data-id="157">A2o</td>
+            <td data-id="158">K2o</td>
+            <td data-id="159">Q2o</td>
+            <td data-id="160">J2o</td>
+            <td data-id="161">T2o</td>
+            <td data-id="162">92o</td>
+            <td data-id="163">82o</td>
+            <td data-id="164">72o</td>
+            <td data-id="165">62o</td>
+            <td data-id="166">52o</td>
+            <td data-id="167">42o</td>
+            <td data-id="168">32o</td>
+            <td data-id="169">22</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <script src="rangeMaker.js" defer></script>
+  <script src="rangeEdit.js" defer></script>
+
+</body>
+</html>
