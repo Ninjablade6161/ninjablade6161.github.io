@@ -203,7 +203,7 @@
     document.getElementById('importBtn').onclick=()=>{const json=window.prompt('Paste JSON:');if(!json)return;try{PokerRangeStore.import(json);render();}catch{alert('Bad JSON')}};
     document.getElementById('wipeBtn').onclick  =()=>{if(confirm('Delete ALL?')){ PokerRangeStore.clear(); render(); }};
     document.getElementById('viewerBtn').onclick=()=>{const cur=getViewerUrl();const v=window.prompt('Viewer URL',cur)||cur;setViewerUrl(v.trim());render();};
-    document.getElementById('backBtn').onclick  =()=>{if(document.referrer)history.back();else location.href='../index.html';};
+    document.getElementById('backBtn').onclick  =()=>{if(document.referrer)history.back();else location.href='ninjablade6161.github.io/index.html';};
     searchEl.oninput = render;
 
     getViewerUrl(); // seed default
