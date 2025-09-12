@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grid Fill — Range Trainer</title>
+<style>
+  :root{
+    --bg:#0b1020; --ink:#e5e7eb; --mut:#94a3b8; --card:#0f172a; --border:#1f2937;
+    --fold:#526D82; --call:#1E93AB; --raise:#E62727;
+    --good:#22c55e; --bad:#ef4444;
+    --drawerBg:#0a1220; --accent:#00e5a8;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,#0a0f1e,#0e1426);color:var(--ink);
+       font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+  .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+  h1{margin:0 0 6px;font-size:22px}
+  .sub{color:var(--mut);font-size:12px;margin-bottom:16px}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;
+        box-shadow:0 14px 38px rgba(0,0,0,.35);margin-bottom:14px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  label{font-size:13px;color:#cbd5e1;display:flex;flex-direction:column;gap:6px}
+  select{background:#0b1220;border:1px solid var(--border);color:var(--ink);
+         padding:10px 12px;border-radius:10px;min-width:260px}
+  .btn{background:#0b1220;border:1px solid var(--border);color:var(--ink);
+       padding:10px 14px;border-radius:10px;cursor:pointer;transition:transform .06s,box-shadow .12s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+  .primary{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4)}
+  .success{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}
+  .ghost{background:#0b1220}
+  .muted{color:#94a3b8}
+
+  /* toolbar (brush) */
+  .toolbar{display:flex;gap:8px;align-items:center}
+  .tool{padding:8px 12px;border-radius:10px;border:1px solid #2a3a59;background:#0b1220;cursor:pointer}
+  .tool[data-mode="R"]{border-color:#9f2c2c;background:rgba(230,39,39,.10)}
+  .tool[data-mode="C"]{border-color:#2a6bb3;background:rgba(30,147,171,.10)}
+  .tool[data-mode="F"]{border-color:#394e62;background:rgba(82,109,130,.10)}
+  .tool.active{outline:2px solid var(--accent); box-shadow:0 0 0 3px rgba(0,229,168,.10)}
+  .tool kbd{font-weight:700; padding:2px 6px; border:1px solid #2a3a59; border-radius:6px; background:#0b1220; margin-left:6px; color:#cbd5e1}
+
+  /* grids */
+  .grid-wrap{display:grid;grid-template-columns:1fr;gap:18px}
+  .grids{display:grid;grid-template-columns:1fr;gap:22px}
+  @media (min-width:1024px){ .grids{grid-template-columns:1fr 1fr} }
+  .grid-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#cbd5e1}
+  .grid{overflow:auto;border-radius:12px;border:1px solid #25314c;background:#0b1220;padding:6px}
+  table{border-collapse:separate;border-spacing:4px;margin:auto}
+  th,td{width:40px;height:40px;text-align:center;color:#e5e7eb;border-radius:6px;font-size:12px;
+        user-select:none}
+  th{background:#243048}
+  td{background:var(--fold);cursor:pointer;position:relative}
+  td[data-a="F"]{background:var(--fold)}
+  td[data-a="C"]{background:var(--call)}
+  td[data-a="R"]{background:var(--raise)}
+  /* no overlay tags anymore */
+  td.correct{outline:2px solid var(--good)}
+  td.wrong{outline:2px solid var(--bad)}
+
+  /* results */
+  .score{font-size:40px;font-weight:900;letter-spacing:.6px}
+  .good{color:var(--good)} .bad{color:var(--bad)}
+  .lists{display:grid;grid-template-columns:1fr;gap:12px}
+  @media (min-width:900px){ .lists{grid-template-columns:1fr 1fr} }
+  .list{background:#0b1220;border:1px solid #24314c;border-radius:10px;padding:10px 12px;min-height:90px}
+  .list h4{margin:0 0 8px;font-size:13px;color:#cbd5e1}
+  .list p{margin:4px 0;color:#a7b9d6;font-size:13px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Courier New",monospace}
+
+  /* Range viewer drawer */
+  .range-toggle{
+    position:fixed; left:16px; top:50%; transform:translateY(-50%);
+    background:#0b1220; border:1px solid #26334f; color:#e5e7eb;
+    padding:10px 12px; border-radius:10px; cursor:pointer; z-index:1001;
+  }
+  .range-toggle:hover{box-shadow:0 6px 18px rgba(0,0,0,.35); transform:translateY(-50%) translateX(1px)}
+  .drawer{
+    position:fixed; right:0; top:0; height:100vh; width:min(560px,45vw);
+    background:var(--drawerBg); border-left:1px solid #22304d; box-shadow:-18px 0 40px rgba(0,0,0,.45);
+    transform:translateX(100%); transition:transform .22s ease; z-index:1000; display:flex; flex-direction:column;
+  }
+  .drawer.open{ transform:translateX(0) }
+  .drawer-header{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid #1f2937}
+  .drawer-title{font-weight:700}
+  .drawer-close{background:#23161a; border:1px solid #3a2230; color:#e5e7eb; padding:6px 10px; border-radius:8px; cursor:pointer}
+  .drawer-body{flex:1; min-height:0}
+  .drawer iframe{width:100%; height:100%; border:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Grid Fill — Range Trainer</h1>
+  <div class="sub">Pick a saved range, paint the grid (Raise/Call/Fold). Defaults to Fold so you only add Calls/Raises. Submit to grade.</div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div class="row">
+        <button class="btn" id="backBtn">⬅ Back</button>
+        <label>Saved range
+          <select id="rangeSel"></select>
+        </label>
+      </div>
+
+      <div class="toolbar" id="toolbar">
+        <button class="tool" data-mode="R">Raise <kbd>R</kbd></button>
+        <button class="tool" data-mode="C">Call  <kbd>C</kbd></button>
+        <button class="tool active" data-mode="F">Fold  <kbd>F</kbd></button>
+        <button class="tool" data-mode="E">Erase <kbd>E</kbd></button>
+      </div>
+
+      <div class="row">
+        <span class="muted mono" id="countMark">R: 0 | C: 0 | F: 169</span>
+        <button class="btn ghost" id="resetBtn">Reset</button>
+        <button class="btn primary" id="submitBtn">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grids">
+      <div class="card">
+        <div class="grid-title"><div>Your answers</div></div>
+        <div id="gridUser" class="grid"></div>
+      </div>
+
+      <div class="card" id="answerCard" style="display:none">
+        <div class="grid-title"><div>Answer key</div><div class="muted mono">Top action of trainer range</div></div>
+        <div id="gridAns" class="grid"></div>
+      </div>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none">
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <div>
+          <div class="score" id="scorePct">0%</div>
+          <div class="muted" id="scoreLine">0 correct / 169 total</div>
+        </div>
+        <div class="row">
+          <button class="btn success" id="tryAgainBtn">Keep Editing</button>
+        </div>
+      </div>
+      <div class="lists" style="margin-top:14px">
+        <div class="list">
+          <h4>Missed (should be…)</h4>
+          <div id="missList"></div>
+        </div>
+        <div class="list">
+          <h4>Extras (you marked but shouldn’t)</h4>
+          <div id="extraList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Range drawer -->
+<button id="openRange" class="range-toggle" title="Open range viewer">🗂 Range</button>
+<div id="rangeDrawer" class="drawer" aria-hidden="true">
+  <div class="drawer-header">
+    <div class="drawer-title" id="drawerTitle">Range Viewer</div>
+    <button class="drawer-close" id="closeDrawer">✕</button>
+  </div>
+  <div class="drawer-body">
+    <iframe id="rangeFrame" src="about:blank" title="RangeView"></iframe>
+  </div>
+</div>
+
+<script>
+/* ===== constants ===== */
+const HAND_LABELS=[
+ "AA","AKs","AQs","AJs","ATs","A9s","A8s","A7s","A6s","A5s","A4s","A3s","A2s",
+ "AKo","KK","KQs","KJs","KTs","K9s","K8s","K7s","K6s","K5s","K4s","K3s","K2s",
+ "AQo","KQo","QQ","QJs","QTs","Q9s","Q8s","Q7s","Q6s","Q5s","Q4s","Q3s","Q2s",
+ "AJo","KJo","QJo","JJ","JTs","J9s","J8s","J7s","J6s","J5s","J4s","J3s","J2s",
+ "ATo","KTo","QTo","JTo","TT","T9s","T8s","T7s","T6s","T5s","T4s","T3s","T2s",
+ "A9o","K9o","Q9o","J9o","T9o","99","98s","97s","96s","95s","94s","93s","92s",
+ "A8o","K8o","Q8o","J8o","T8o","98o","88","87s","86s","85s","84s","83s","82s",
+ "A7o","K7o","Q7o","J7o","T7o","97o","87o","77","76s","75s","74s","73s","72s",
+ "A6o","K6o","Q6o","J6o","T6o","96o","86o","76o","66","65s","64s","63s","62s",
+ "A5o","K5o","Q5o","J5o","T5o","95o","85o","75o","65o","55","54s","53s","52s",
+ "A4o","K4o","Q4o","J4o","T4o","94o","84o","74o","64o","54o","44","43s","42s",
+ "A3o","K3o","Q3o","J3o","T3o","93o","83o","73o","63o","53o","43o","33","32s",
+ "A2o","K2o","Q2o","J2o","T2o","92o","82o","72o","62o","52o","42o","32o","22"
+];
+const N = 169;
+
+/* ===== storage/range utils ===== */
+function getRanges(){
+  try{const s=localStorage.getItem('pokerRanges.v1')||'[]';const arr=JSON.parse(s);return Array.isArray(arr)?arr:[];}catch{return []}
+}
+function parseCrf(crf){
+  const modules=(crf||'').split('?');
+  const out=[];
+  for(let i=0;i<N;i++){
+    const mod=(modules[i]||'').trim().toUpperCase();
+    const kind=mod[0]||'C';
+    const val=mod.slice(1);
+    let pct=(val==="XX")?100:parseInt(val,10); if(isNaN(pct)) pct=0;
+
+    // derive top action; fallback to Fold
+    let a1,a2;
+    if(kind==="A"){a1="R";a2="C";}
+    else if(kind==="B"){a1="R";a2="F";}
+    else {a1="C";a2="F";}
+    let top = (pct>=50)?a1:a2;
+    if(top!=="R" && top!=="C") top="F";
+    out.push({idx:i,label:HAND_LABELS[i],top});
+  }
+  return out;
+}
+function buildRangeViewUrl(crfText){
+  const base=new URL('../RangeView/index.html',location.href).toString();
+  const b64=btoa(unescape(encodeURIComponent(crfText||'')));
+  const u=new URL(base); u.searchParams.set('b64',b64); return u.toString();
+}
+
+/* ===== DOM refs ===== */
+const rangeSel = document.getElementById('rangeSel');
+const gridUser  = document.getElementById('gridUser');
+const gridAns   = document.getElementById('gridAns');
+const answerCard= document.getElementById('answerCard');
+const resultCard= document.getElementById('resultCard');
+const scorePct  = document.getElementById('scorePct');
+const scoreLine = document.getElementById('scoreLine');
+const missList  = document.getElementById('missList');
+const extraList = document.getElementById('extraList');
+const countMark = document.getElementById('countMark');
+
+/* ===== state ===== */
+let currentRange = null;           // object with .text and mods[]
+let user = new Array(N).fill("F"); // DEFAULT FOLD
+let locked = false;
+let brush = "F";                   // active tool: "R" | "C" | "F" | "E"
+let mouseDown = false;
+
+/* ===== grid helpers ===== */
+function makeGrid(container, clickable){
+  const tbl=document.createElement('table');
+  const thead=document.createElement('thead');
+  const trh=document.createElement('tr');
+  const heads=HAND_LABELS.slice(0,13);
+  trh.appendChild(document.createElement('th'));
+  for(let i=0;i<13;i++){const th=document.createElement('th'); th.textContent=heads[i]; trh.appendChild(th);}
+  thead.appendChild(trh); tbl.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  for(let r=0;r<13;r++){
+    const tr=document.createElement('tr');
+    const rowHead=document.createElement('th'); rowHead.textContent=HAND_LABELS[r*13]; tr.appendChild(rowHead);
+    for(let c=0;c<13;c++){
+      const td=document.createElement('td');
+      td.dataset.index = r*13 + c;
+      td.textContent = HAND_LABELS[r*13+c];
+      if(clickable){
+        td.addEventListener('mousedown', (e)=>{ if(locked) return; applyBrush(td); mouseDown=true; });
+        td.addEventListener('mouseenter', ()=>{ if(locked||!mouseDown) return; applyBrush(td); });
+        td.addEventListener('mouseup', ()=>{ mouseDown=false; });
+        td.addEventListener('contextmenu', (e)=>{e.preventDefault(); if(locked) return; setCell(td,"F");});
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  tbl.appendChild(tbody);
+  container.innerHTML="";
+  container.appendChild(tbl);
+}
+window.addEventListener('mouseup', ()=>{ mouseDown=false; });
+
+function paintCell(td, mark){
+  td.removeAttribute('data-a');
+  td.classList.remove('correct','wrong');
+  if(!mark) return;
+  td.setAttribute('data-a', mark);  // background color only; no overlay tag
+}
+function setCell(td, val){
+  const i=+td.dataset.index;
+  user[i]=val;
+  paintCell(td,val);
+  updateStats();
+}
+function applyBrush(td){
+  const mode=brush;
+  if(mode==="E"){ setCell(td,"F"); return; }  // erase -> Fold baseline
+  setCell(td,mode);
+}
+
+/* ===== toolbar ===== */
+const toolbar=document.getElementById('toolbar');
+toolbar.addEventListener('click', (e)=>{
+  const btn=e.target.closest('.tool'); if(!btn) return;
+  setBrush(btn.dataset.mode);
+});
+function setBrush(mode){
+  brush=mode;
+  toolbar.querySelectorAll('.tool').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+}
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='r' || e.key==='R') setBrush('R');
+  if(e.key==='c' || e.key==='C') setBrush('C');
+  if(e.key==='f' || e.key==='F') setBrush('F');
+  if(e.key==='e' || e.key==='E') setBrush('E');
+});
+
+/* ===== load/select ranges ===== */
+function loadSelect(){
+  const ranges = getRanges().sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
+  if(!ranges.length){
+    rangeSel.innerHTML='<option value="">No saved ranges found</option>';
+    return;
+  }
+  rangeSel.innerHTML = ranges.map(r=>`<option value="${r.id}">${r.title}</option>`).join('');
+  const chosen = ranges[0];
+  currentRange = {...chosen, mods: parseCrf(chosen.text||'')};
+  document.getElementById('rangeFrame').src = buildRangeViewUrl(chosen.text||'');
+  document.getElementById('drawerTitle').textContent = chosen.title;
+}
+rangeSel.addEventListener('change', ()=>{
+  const ranges = getRanges();
+  const ch = ranges.find(r=>r.id===rangeSel.value);
+  if(!ch) return;
+  currentRange = {...ch, mods: parseCrf(ch.text||'')};
+  document.getElementById('rangeFrame').src = buildRangeViewUrl(ch.text||'');
+  document.getElementById('drawerTitle').textContent = ch.title;
+  resetAll(false);
+});
+
+/* ===== stats / reset ===== */
+function updateStats(){
+  let r=0,c=0,f=0;
+  for(const v of user){ if(v==="R") r++; else if(v==="C") c++; else f++; }
+  countMark.textContent = `R: ${r} | C: ${c} | F: ${f}`;
+}
+function resetAll(hard=true){
+  locked=false;
+  if(hard) user = new Array(N).fill("F");
+  makeGrid(gridUser, true);
+  makeGrid(gridAns, false);
+  // paint baseline folds in user grid
+  gridUser.querySelectorAll("td[data-index]").forEach(td=>paintCell(td,"F"));
+  updateStats();
+  answerCard.style.display='none';
+  resultCard.style.display='none';
+}
+document.getElementById('resetBtn').onclick = ()=>resetAll(true);
+
+/* ===== grading ===== */
+function grade(){
+  if(!currentRange){ alert('Pick a range first.'); return; }
+  locked = true;
+  const truth = currentRange.mods; // has .top
+  let correct=0;
+  const tblUser = gridUser.querySelector('table');
+  const tblAns  = gridAns.querySelector('table');
+  for(let i=0;i<N;i++){
+    const tdU = tblUser.querySelector(`td[data-index="${i}"]`);
+    const tdA = tblAns .querySelector(`td[data-index="${i}"]`);
+    const my  = user[i] || "F";            // baseline F
+    const top = truth[i].top;              // "R","C","F"
+    paintCell(tdA, top);
+    if(my===top){ tdU.classList.add('correct'); correct++; }
+    else{ tdU.classList.add('wrong'); }
+  }
+  const pct = Math.round((correct / N) * 100);
+  scorePct.textContent = pct + '%';
+  scorePct.classList.toggle('good', pct>=80);
+  scorePct.classList.toggle('bad', pct<80);
+  scoreLine.textContent = `${correct} correct / ${N} total`;
+
+  // Missed & extras
+  const missed=[], extras=[];
+  for(let i=0;i<N;i++){
+    const my=user[i]||"F";
+    const top=truth[i].top;
+    if(my===top) continue;
+    if(my==="F" && (top==="R"||top==="C")){
+      missed.push(`${HAND_LABELS[i]} → ${nameOf(top)}`);
+    }else if(my==="R"||my==="C"){
+      extras.push(`${HAND_LABELS[i]}: you ${nameOf(my)}, should ${nameOf(top)}`);
+    }
+  }
+  missList.innerHTML  = missed.length ? missed.map(s=>`<p>${s}</p>`).join('') : '<p class="muted">— none —</p>';
+  extraList.innerHTML = extras.length ? extras.map(s=>`<p>${s}</p>`).join('') : '<p class="muted">— none —</p>';
+
+  answerCard.style.display='block';
+  resultCard.style.display='block';
+}
+function nameOf(ch){ return ch==="R"?"raise":(ch==="C"?"call":"fold"); }
+
+document.getElementById('submitBtn').onclick = grade;
+document.getElementById('tryAgainBtn').onclick = ()=>{ locked=false; answerCard.style.display='none'; resultCard.style.display='none'; };
+
+/* ===== range drawer ===== */
+const drawer = document.getElementById('rangeDrawer');
+document.getElementById('openRange').onclick = ()=> drawer.classList.add('open');
+document.getElementById('closeDrawer').onclick = ()=> drawer.classList.remove('open');
+
+/* ===== back button ===== */
+document.getElementById('backBtn').onclick = ()=>{
+  if (document.referrer) history.back();
+  else location.href = '../index.html';
+};
+
+/* ===== init ===== */
+makeGrid(gridUser, true);
+makeGrid(gridAns, false);
+gridUser.querySelectorAll("td[data-index]").forEach(td=>paintCell(td,"F"));
+loadSelect();
+updateStats();
+</script>
+</body>
+</html>
